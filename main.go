@@ -4,8 +4,8 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/eugene-static/memobot/internal/server"
 	"github.com/eugene-static/memobot/pkg/config"
-	"github.com/eugene-static/memobot/server"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
