@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"database/sql"
 	"log/slog"
 	"os"
@@ -16,7 +17,7 @@ type Storage struct {
 	l  *slog.Logger
 }
 
-func New(cfg *config.Database, l *slog.Logger) (*Storage, error) {
+func New(ctx context.Context, cfg *config.Database, l *slog.Logger) (*Storage, error) {
 	err := os.MkdirAll(filepath.Dir(cfg.Path), 0750)
 	if err != nil {
 		return nil, err
@@ -51,7 +52,7 @@ func New(cfg *config.Database, l *slog.Logger) (*Storage, error) {
 			ext VARCHAR(4),
 			FOREIGN KEY (parent_id) REFERENCES folders(id) ON DELETE CASCADE
 			);`
-	_, err = db.Exec(query)
+	_, err = db.ExecContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +62,11 @@ func New(cfg *config.Database, l *slog.Logger) (*Storage, error) {
 	}, nil
 }
 
-func (s *Storage) GetListByParent(userID int64, parentID string) ([]*entities.List, error) {
+func (s *Storage) Close() error {
+	return s.db.Close()
+}
+
+func (s *Storage) GetListByParent(ctx context.Context, userID int64, parentID string) ([]*entities.List, error) {
 	list := make([]*entities.List, 0)
 	query := `
 			SELECT * FROM (
@@ -73,7 +78,7 @@ func (s *Storage) GetListByParent(userID int64, parentID string) ([]*entities.Li
 			              WHERE user_id = ? AND parent_id = ?)
 			ORDER BY is_dir DESC, title ASC
 			`
-	rows, err := s.db.Query(query, userID, parentID, userID, parentID)
+	rows, err := s.db.QueryContext(ctx, query, userID, parentID, userID, parentID)
 	if err != nil {
 		return nil, err
 	}

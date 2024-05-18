@@ -40,7 +40,7 @@ func New() *Manager {
 }
 
 func (m *Manager) timer(userID int64) *time.Timer {
-	return time.AfterFunc(time.Minute, func() {
+	return time.AfterFunc(time.Hour, func() {
 		m.mu.Lock()
 		delete(m.storage, userID)
 		m.mu.Unlock()
@@ -54,11 +54,12 @@ func (m *Manager) updateTime(userID int64) {
 	m.storage[userID].Timer = m.timer(userID)
 }
 
-func (m *Manager) GetUser(userID int64, name string) *User {
+func (m *Manager) GetUser(userID int64) *User {
 	c, ok := m.storage[userID]
 	if !ok {
 		return nil
 	}
+	m.updateTime(userID)
 	return c
 }
 
@@ -95,16 +96,6 @@ func (u *User) CurrentDir() *Dir {
 		return nil
 	}
 	return u.Dir[len(u.Dir)-1]
-}
-
-func (u *User) ParentDir() *Dir {
-	switch len(u.Dir) {
-	case 0:
-		return nil
-	case 1:
-		return u.Dir[0]
-	}
-	return u.Dir[len(u.Dir)-2]
 }
 
 func (u *User) Path() string {

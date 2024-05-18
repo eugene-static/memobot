@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -11,22 +12,22 @@ import (
 const root = "root"
 
 type List interface {
-	GetListByParent(int64, string) ([]*entities.List, error)
+	GetListByParent(context.Context, int64, string) ([]*entities.List, error)
 }
 type Folder interface {
-	AddRoot(*entities.Folder) error
-	CheckRoot(int64, string) (int, error)
-	AddFolder(*entities.Folder) (string, error)
-	RenameFolder(string, string) error
-	DeleteFolder(string) error
+	AddRoot(context.Context, *entities.Folder) error
+	CheckRoot(context.Context, int64, string) (int, error)
+	AddFolder(context.Context, *entities.Folder) (string, error)
+	RenameFolder(context.Context, string, string) error
+	DeleteFolder(context.Context, string) error
 }
 
 type Note interface {
-	AddNote(*entities.Note) (string, error)
-	GetNoteContent(int64, string) (string, error)
-	Update(string, string) error
-	RenameNote(string, string) error
-	DeleteNote(string) error
+	AddNote(context.Context, *entities.Note) (string, error)
+	GetNoteContent(context.Context, int64, string) (string, error)
+	Update(context.Context, string, string) error
+	RenameNote(context.Context, string, string) error
+	DeleteNote(context.Context, string) error
 }
 
 type Storage interface {
@@ -43,39 +44,41 @@ func New(storage Storage) *Service {
 	return &Service{storage: storage}
 }
 
-func (s *Service) AddRoot(userID int64, dirID string, title string) error {
-	found, err := s.storage.CheckRoot(userID, dirID)
+func (s *Service) AddRoot(ctx context.Context, userID int64, dirID string, title string) error {
+	found, err := s.storage.CheckRoot(ctx, userID, dirID)
 	if err != nil {
 		return err
 	}
 	if found == 0 {
-		return s.storage.AddRoot(&entities.Folder{
-			ID:     dirID,
-			UserID: userID,
-			Title:  title,
-		})
+		return s.storage.AddRoot(ctx,
+			&entities.Folder{
+				ID:     dirID,
+				UserID: userID,
+				Title:  title,
+			})
 	}
 	return nil
 }
 
-func (s *Service) GetList(userID int64, id string) ([]*entities.List, error) {
-	return s.storage.GetListByParent(userID, id)
+func (s *Service) GetList(ctx context.Context, userID int64, id string) ([]*entities.List, error) {
+	return s.storage.GetListByParent(ctx, userID, id)
 }
 
-func (s *Service) Get(userID int64, id string) (string, error) {
-	return s.storage.GetNoteContent(userID, id)
+func (s *Service) Get(ctx context.Context, userID int64, id string) (string, error) {
+	return s.storage.GetNoteContent(ctx, userID, id)
 }
 
-func (s *Service) Add(userID int64, parentID string, title string, isDir bool) (string, error) {
+func (s *Service) Add(ctx context.Context, userID int64, parentID string, title string, isDir bool) (string, error) {
 	if isDir {
-		return s.storage.AddFolder(&entities.Folder{
-			ID:       fmt.Sprintf("1%s", random.String(15)),
-			UserID:   userID,
-			ParentID: parentID,
-			Title:    title,
-		})
+		return s.storage.AddFolder(ctx,
+			&entities.Folder{
+				ID:       fmt.Sprintf("1%s", random.String(15)),
+				UserID:   userID,
+				ParentID: parentID,
+				Title:    title,
+			})
 	}
-	return s.storage.AddNote(&entities.Note{
+	return s.storage.AddNote(ctx, &entities.Note{
 		ID:       fmt.Sprintf("2%s", random.String(15)),
 		UserID:   userID,
 		ParentID: parentID,
@@ -83,20 +86,20 @@ func (s *Service) Add(userID int64, parentID string, title string, isDir bool) (
 	})
 }
 
-func (s *Service) UpdateContent(id, content string) error {
-	return s.storage.Update(id, content)
+func (s *Service) UpdateContent(ctx context.Context, id, content string) error {
+	return s.storage.Update(ctx, id, content)
 }
 
-func (s *Service) Rename(id, title string) error {
+func (s *Service) Rename(ctx context.Context, id, title string) error {
 	if strings.HasPrefix(id, "1") {
-		return s.storage.RenameFolder(id, title)
+		return s.storage.RenameFolder(ctx, id, title)
 	}
-	return s.storage.RenameNote(id, title)
+	return s.storage.RenameNote(ctx, id, title)
 }
 
-func (s *Service) Delete(id string) error {
+func (s *Service) Delete(ctx context.Context, id string) error {
 	if strings.HasPrefix(id, "1") {
-		return s.storage.DeleteFolder(id)
+		return s.storage.DeleteFolder(ctx, id)
 	}
-	return s.storage.DeleteNote(id)
+	return s.storage.DeleteNote(ctx, id)
 }

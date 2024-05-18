@@ -1,6 +1,7 @@
 package handle
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -13,7 +14,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (h *Handler) Message(u tgbotapi.Update, user *session.User) *tgbotapi.MessageConfig {
+func (h *Handler) Message(ctx context.Context, u tgbotapi.Update, user *session.User) *tgbotapi.MessageConfig {
 	text := u.Message.Text
 	dir := user.CurrentDir()
 	h.l.Info("update", slog.String("message", text), slog.Int64("user_id", user.ID))
@@ -30,7 +31,7 @@ func (h *Handler) Message(u tgbotapi.Update, user *session.User) *tgbotapi.Messa
 			if strings.ContainsRune(text, '/') {
 				return errorMsg(user.ID, "Название не должно содержать '/'")
 			}
-			id, err := h.service.Add(user.ID, dir.ID, text, true)
+			id, err := h.service.Add(ctx, user.ID, dir.ID, text, true)
 			if err != nil {
 				l.Warn("failed to add new section", logger.Err(err))
 				return nil
@@ -40,7 +41,7 @@ func (h *Handler) Message(u tgbotapi.Update, user *session.User) *tgbotapi.Messa
 			if strings.ContainsRune(text, '/') {
 				return errorMsg(user.ID, "Название не должно содержать '/'")
 			}
-			id, err := h.service.Add(user.ID, dir.ID, text, false)
+			id, err := h.service.Add(ctx, user.ID, dir.ID, text, false)
 			if err != nil {
 				l.Warn("failed to add new note", logger.Err(err))
 				return nil
@@ -50,14 +51,14 @@ func (h *Handler) Message(u tgbotapi.Update, user *session.User) *tgbotapi.Messa
 			if strings.ContainsRune(text, '/') {
 				return errorMsg(user.ID, "Название не должно содержать '/'")
 			}
-			if err := h.service.Rename(dir.ID, text); err != nil {
+			if err := h.service.Rename(ctx, dir.ID, text); err != nil {
 				l.Warn("failed to rename", logger.Err(err))
 				return nil
 			}
 			dir.Title = text
 			l.Info("renamed")
 		case update:
-			if err := h.service.UpdateContent(dir.ID, text); err != nil {
+			if err := h.service.UpdateContent(ctx, dir.ID, text); err != nil {
 				l.Warn("failed to add content", logger.Err(err))
 				return nil
 			}
@@ -72,7 +73,7 @@ func (h *Handler) Message(u tgbotapi.Update, user *session.User) *tgbotapi.Messa
 		list:   nil,
 	}
 	if mc.level == lvlNote {
-		content, err := h.service.Get(user.ID, dir.ID)
+		content, err := h.service.Get(ctx, user.ID, dir.ID)
 		if err != nil {
 			l.Warn("failed to get content")
 			return nil
@@ -80,7 +81,7 @@ func (h *Handler) Message(u tgbotapi.Update, user *session.User) *tgbotapi.Messa
 		mc.msg = fmt.Sprintf("%s\n\n%s", mc.msg, format.Format(content, format.Monotype))
 		return mc.build()
 	}
-	list, err := h.service.GetList(user.ID, dir.ID)
+	list, err := h.service.GetList(ctx, user.ID, dir.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		l.Warn("failed to get list", logger.Err(err))
 		return nil

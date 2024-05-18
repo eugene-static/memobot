@@ -9,21 +9,13 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-const (
-	sections      = 1
-	subsections   = 2
-	note          = 3
-	sectionAdd    = 11
-	subsectionAdd = 21
-)
-
 func main() {
 	l := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		AddSource:   false,
 		Level:       slog.LevelDebug,
 		ReplaceAttr: nil,
 	}))
-	cfg, err := config.GetConfig("./config/config.json")
+	cfg, err := config.Get("./config/config.json")
 	if err != nil || cfg == nil {
 		l.Error("failed to get config", slog.Any("details", err))
 		return

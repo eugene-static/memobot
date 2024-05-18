@@ -22,7 +22,7 @@ type Database struct {
 	Path   string `json:"path"`
 }
 
-func GetConfig(path string) (*Config, error) {
+func Get(path string) (*Config, error) {
 	file, err := os.Open(path)
 	defer file.Close()
 	if err != nil {

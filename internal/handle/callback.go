@@ -1,6 +1,7 @@
 package handle
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -13,8 +14,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (h *Handler) Callback(u tgbotapi.Update, user *session.User) *tgbotapi.MessageConfig {
-
+func (h *Handler) Callback(ctx context.Context, u tgbotapi.Update, user *session.User) *tgbotapi.MessageConfig {
 	user.NewAction(u.CallbackQuery.Data)
 	dir := user.CurrentDir()
 	mc := &MessageConfig{
@@ -45,7 +45,7 @@ func (h *Handler) Callback(u tgbotapi.Update, user *session.User) *tgbotapi.Mess
 		mc.msg = fmt.Sprintf("Удалить %s?", format.Format(dir.Title, format.Italic))
 		mc.level = lvlAccept
 	case accept:
-		if err := h.service.Delete(dir.ID); err != nil {
+		if err := h.service.Delete(ctx, dir.ID); err != nil {
 			l.Warn("failed to delete section", logger.Err(err))
 		}
 		l.Info("deleted")
@@ -66,7 +66,7 @@ func (h *Handler) Callback(u tgbotapi.Update, user *session.User) *tgbotapi.Mess
 		return mc.build()
 	}
 	if mc.level == lvlNote {
-		content, err := h.service.Get(mc.userID, dir.ID)
+		content, err := h.service.Get(ctx, mc.userID, dir.ID)
 		if err != nil {
 			l.Warn("failed to get content", logger.Err(err))
 			return nil
@@ -74,7 +74,7 @@ func (h *Handler) Callback(u tgbotapi.Update, user *session.User) *tgbotapi.Mess
 		mc.msg = fmt.Sprintf("%s\n\n%s", mc.msg, format.Format(content, format.Monotype))
 		return mc.build()
 	}
-	list, err := h.service.GetList(user.ID, dir.ID)
+	list, err := h.service.GetList(ctx, user.ID, dir.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		l.Warn("failed to get list", logger.Err(err))
 		return nil

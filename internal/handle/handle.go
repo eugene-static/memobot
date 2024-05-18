@@ -1,6 +1,7 @@
 package handle
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -38,13 +39,13 @@ const (
 )
 
 type Service interface {
-	GetList(int64, string) ([]*entities.List, error)
-	Get(int64, string) (string, error)
-	AddRoot(int64, string, string) error
-	Add(int64, string, string, bool) (string, error)
-	UpdateContent(string, string) error
-	Rename(string, string) error
-	Delete(string) error
+	GetList(context.Context, int64, string) ([]*entities.List, error)
+	Get(context.Context, int64, string) (string, error)
+	AddRoot(context.Context, int64, string, string) error
+	Add(context.Context, int64, string, string, bool) (string, error)
+	UpdateContent(context.Context, string, string) error
+	Rename(context.Context, string, string) error
+	Delete(context.Context, string) error
 }
 
 type Handler struct {
@@ -61,32 +62,32 @@ func NewHandler(l *slog.Logger, service *service.Service, manager *session.Manag
 	}
 }
 
-func (h *Handler) Send(b *tgbotapi.BotAPI, u tgbotapi.Update) {
+func (h *Handler) Send(ctx context.Context, b *tgbotapi.BotAPI, u tgbotapi.Update) {
 	var msg *tgbotapi.MessageConfig
 	var user *session.User
 	if u.Message != nil {
 		userID, username := u.Message.Chat.ID, u.Message.Chat.UserName
-		user = h.manager.GetUser(userID, username)
+		user = h.manager.GetUser(userID)
 		if user == nil {
 			user = h.manager.AddUser(userID, username)
-			if err := h.service.AddRoot(user.ID, user.CurrentDir().ID, user.Username); err != nil {
+			if err := h.service.AddRoot(ctx, user.ID, user.CurrentDir().ID, user.Username); err != nil {
 				h.l.Warn("failed to add root dir", slog.Int64("user_id", user.ID), logger.Err(err))
 			}
 		}
-		msg = h.Message(u, user)
+		msg = h.Message(ctx, u, user)
 	} else if u.CallbackQuery != nil {
 		userID, username := u.CallbackQuery.Message.Chat.ID, u.CallbackQuery.Message.Chat.UserName
-		user = h.manager.GetUser(userID, username)
+		user = h.manager.GetUser(userID)
 		if user == nil {
 			user = h.manager.AddUser(userID, username)
-			if err := h.service.AddRoot(user.ID, user.CurrentDir().ID, user.Username); err != nil {
+			if err := h.service.AddRoot(ctx, user.ID, user.CurrentDir().ID, user.Username); err != nil {
 				h.l.Warn("failed to add root dir", slog.Int64("user_id", user.ID), logger.Err(err))
 			}
 		}
 		if user.LastMessageID != u.CallbackQuery.Message.MessageID {
 			return
 		}
-		msg = h.Callback(u, user)
+		msg = h.Callback(ctx, u, user)
 	}
 	if msg == nil {
 		return
