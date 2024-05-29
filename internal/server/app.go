@@ -38,10 +38,8 @@ func (a *Application) Run() {
 		a.l.Error("database connection failed", logger.Err(err))
 		return
 	}
+	appHandler := handle.New(a.l, service.New(appStorage), session.New())
 	a.l.Info("Authorized successful", slog.String("account", a.bot.Self.UserName))
-	appService := service.New(appStorage)
-	appSessionManager := session.New()
-	appHandler := handle.NewHandler(a.l, appService, appSessionManager)
 	a.bot.Debug = a.cfg.Bot.DebugMode
 	u := tgbotapi.NewUpdate(a.cfg.Bot.UpdateOffset)
 	u.Timeout = a.cfg.Bot.UpdateTimeout

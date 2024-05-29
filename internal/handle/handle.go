@@ -2,15 +2,12 @@ package handle
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/eugene-static/memobot/internal/entities"
 	"github.com/eugene-static/memobot/internal/service"
 	"github.com/eugene-static/memobot/internal/session"
 	"github.com/eugene-static/memobot/pkg/logger"
-	"github.com/eugene-static/memobot/pkg/wrapper"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -54,7 +51,7 @@ type Handler struct {
 	manager *session.Manager
 }
 
-func NewHandler(l *slog.Logger, service *service.Service, manager *session.Manager) *Handler {
+func New(l *slog.Logger, service *service.Service, manager *session.Manager) *Handler {
 	return &Handler{
 		l:       l,
 		service: service,
@@ -64,30 +61,22 @@ func NewHandler(l *slog.Logger, service *service.Service, manager *session.Manag
 
 func (h *Handler) Send(ctx context.Context, b *tgbotapi.BotAPI, u tgbotapi.Update) {
 	var msg *tgbotapi.MessageConfig
-	var user *session.User
+	chat := u.FromChat()
+	userID, username := chat.ID, chat.UserName
+	user := h.manager.GetUser(userID)
+	if user == nil {
+		user = h.manager.AddUser(userID, username)
+		if err := h.service.AddRoot(ctx, user.ID, user.CurrentDir().ID, user.Username); err != nil {
+			h.l.Warn("failed to add root dir", slog.Int64("user_id", user.ID), logger.Err(err))
+		}
+	}
 	if u.Message != nil {
-		userID, username := u.Message.Chat.ID, u.Message.Chat.UserName
-		user = h.manager.GetUser(userID)
-		if user == nil {
-			user = h.manager.AddUser(userID, username)
-			if err := h.service.AddRoot(ctx, user.ID, user.CurrentDir().ID, user.Username); err != nil {
-				h.l.Warn("failed to add root dir", slog.Int64("user_id", user.ID), logger.Err(err))
-			}
-		}
-		msg = h.Message(ctx, u, user)
+		msg = h.Message(ctx, u.Message.Text, user)
 	} else if u.CallbackQuery != nil {
-		userID, username := u.CallbackQuery.Message.Chat.ID, u.CallbackQuery.Message.Chat.UserName
-		user = h.manager.GetUser(userID)
-		if user == nil {
-			user = h.manager.AddUser(userID, username)
-			if err := h.service.AddRoot(ctx, user.ID, user.CurrentDir().ID, user.Username); err != nil {
-				h.l.Warn("failed to add root dir", slog.Int64("user_id", user.ID), logger.Err(err))
-			}
-		}
 		if user.LastMessageID != u.CallbackQuery.Message.MessageID {
 			return
 		}
-		msg = h.Callback(ctx, u, user)
+		msg = h.Callback(ctx, u.CallbackQuery.Data, user)
 	}
 	if msg == nil {
 		return
@@ -118,18 +107,4 @@ func getLevel(id string) int {
 		return lvlNote
 	}
 	return -1
-}
-
-func listToButton(list []*entities.List) [][]tgbotapi.InlineKeyboardButton {
-	buttons := make([][]tgbotapi.InlineKeyboardButton, len(list))
-	symbol := folder
-	for i, el := range list {
-		if strings.HasPrefix(el.ID, "2") {
-			symbol = note
-		}
-		title := fmt.Sprintf("%s%s", symbol, el.Title)
-		id := wrapper.Wrap(el.ID, el.Title)
-		buttons[i] = tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData(title, id))
-	}
-	return buttons
 }

@@ -1,6 +1,11 @@
 package handle
 
 import (
+	"fmt"
+	"strings"
+
+	"github.com/eugene-static/memobot/internal/entities"
+	"github.com/eugene-static/memobot/pkg/wrapper"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -51,5 +56,17 @@ func (mc *MessageConfig) build() *tgbotapi.MessageConfig {
 	}
 	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(mc.list...)
 	return &msg
+}
 
+func (mc *MessageConfig) listToButtons(list []*entities.List) {
+	mc.list = make([][]tgbotapi.InlineKeyboardButton, len(list))
+	symbol := folder
+	for i, el := range list {
+		if strings.HasPrefix(el.ID, "2") {
+			symbol = note
+		}
+		title := fmt.Sprintf("%s%s", symbol, el.Title)
+		id := wrapper.Wrap(el.ID, el.Title)
+		mc.list[i] = tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData(title, id))
+	}
 }

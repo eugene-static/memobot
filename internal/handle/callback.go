@@ -14,8 +14,8 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (h *Handler) Callback(ctx context.Context, u tgbotapi.Update, user *session.User) *tgbotapi.MessageConfig {
-	user.NewAction(u.CallbackQuery.Data)
+func (h *Handler) Callback(ctx context.Context, data string, user *session.User) *tgbotapi.MessageConfig {
+	user.NewAction(data)
 	dir := user.CurrentDir()
 	mc := &MessageConfig{
 		userID: user.ID,
@@ -26,7 +26,7 @@ func (h *Handler) Callback(ctx context.Context, u tgbotapi.Update, user *session
 	l := h.l.With(
 		slog.Int64("user_id", user.ID),
 		slog.String("section_id", dir.ID),
-		slog.String("request", user.Action),
+		slog.String("request", data),
 	)
 	switch user.Action {
 	case addFolder:
@@ -46,7 +46,7 @@ func (h *Handler) Callback(ctx context.Context, u tgbotapi.Update, user *session
 		mc.level = lvlAccept
 	case accept:
 		if err := h.service.Delete(ctx, dir.ID); err != nil {
-			l.Warn("failed to delete section", logger.Err(err))
+			l.Warn("failed to delete folder", logger.Err(err))
 		}
 		l.Info("deleted")
 		fallthrough
@@ -79,6 +79,6 @@ func (h *Handler) Callback(ctx context.Context, u tgbotapi.Update, user *session
 		l.Warn("failed to get list", logger.Err(err))
 		return nil
 	}
-	mc.list = listToButton(list)
+	mc.listToButtons(list)
 	return mc.build()
 }
